@@ -187,10 +187,10 @@ def read_whole_file(file_name):
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Convert Nozbe account to .org (see https://orgmode.org).")
-    parser.add_argument("input", metavar='data.json', type=str, nargs=1,
+    parser.add_argument("input", metavar='data.json', type=str,
                         help="Nozbe's data.json")
     parser.add_argument('output', metavar="Nozbe.org", type=str,
-                        nargs=1, default="Nozbe.org",
+                        default="Nozbe.org",
                         help='Output file name')
     return parser.parse_args()
     
