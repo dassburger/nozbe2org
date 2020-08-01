@@ -9,7 +9,6 @@ from collections import namedtuple
 
 from PyOrgMode import PyOrgMode
 
-TASK_INDENT = "   "
 
 class Nozbe:
     Project = namedtuple("Project", ["id", "name", "description", "tasks"])
@@ -31,7 +30,7 @@ class Nozbe:
         self.load_projects(nozbe_data["project"])
         self.load_tasks(nozbe_data["task"])
         self.load_uploads(nozbe_data["upload"])
-
+        
     def load_projects(self, nozbe_projects):
         logging.info("Loading %d Nozbe projects", len(nozbe_projects))
         for p in nozbe_projects:
@@ -71,19 +70,17 @@ class Nozbe:
             comment.uploads.append(upload)
 
 
-def convert_project(nozbe_project: Nozbe.Project):
+def convert_project(org: PyOrgMode.OrgNode.Element, nozbe_project: Nozbe.Project):
     logging.info("Converting Nozbe project %s (%s) to Org", nozbe_project.name, nozbe_project.id)
-    org_project = PyOrgMode.OrgDataStructure()
-    if nozbe_project.description:
-        org_project.root.append_clean(nozbe_project.description + "\n")
     tasks_root = PyOrgMode.OrgNode.Element()
-    tasks_root.heading = "Tasks"
-    org_project.root.append_clean(tasks_root)
+    tasks_root.heading = nozbe_project.name
+    org.append_clean(tasks_root)
+
+    if nozbe_project.description:
+        tasks_root.append_clean(convert_nozbe_markdown(1, nozbe_project.description) + "\n")
 
     for t in nozbe_project.tasks:
         tasks_root.append_clean(convert_task(t))
-
-    org_project.save_to_file(nozbe_project.name + ".org")
 
 
 def convert_task(nozbe_task: Nozbe.Task):
@@ -112,31 +109,33 @@ def convert_comment(nozbe_comment: Nozbe.Comment):
                  nozbe_comment.task.id)
     if nozbe_comment.type == "markdown":
         logging.info("Adding %s comment" % nozbe_comment.type)
-        return convert_nozbe_markdown(nozbe_comment.body)
+        return convert_nozbe_markdown(2, nozbe_comment.body)
     elif nozbe_comment.type == "checklist":
         logging.info("Adding %s comment" % nozbe_comment.type)
-        return convert_nozbe_checklist(nozbe_comment.body)
+        return convert_nozbe_checklist(2, nozbe_comment.body)
     elif nozbe_comment.type == "file":
         logging.info("Adding %s comment" % nozbe_comment.type)
         if not nozbe_comment.uploads:
             logging.warning("No uploads found for comment %s of type %s", nozbe_comment.id, nozbe_comment.type)
             return
         download_file(nozbe_comment.uploads[0])
-        return convert_nozbe_file(nozbe_comment.uploads[0])
+        return convert_nozbe_file(2, nozbe_comment.uploads[0])
     else:
         logging.warning("Skipping comment of unsupported type %s", nozbe_comment.type)
 
 
-def convert_nozbe_checklist(body):
-    return body.replace("(-)", f"{TASK_INDENT}- [ ]").replace("(+)", f"{TASK_INDENT}- [X]") + "\n"
+def convert_nozbe_checklist(level: int, body: str):
+    return body.replace("(-)", indent(level)+"- [ ]").replace("(+)", indent(level)+"- [X]") + "\n"
 
 
-def convert_nozbe_markdown(body: str):
-    return TASK_INDENT + body.replace("\n", f"\n{TASK_INDENT}") + "\n"
+def convert_nozbe_markdown(level: int, body: str):
+    return indent(level) + body.replace("\n", "\n"+indent(level)) + "\n"
 
+def indent(level: int):
+    return " "*level + " "
 
-def convert_nozbe_file(attachment):
-    return "   [[" + attachment_file_name(attachment) + "]]\n"
+def convert_nozbe_file(level: int, attachment):
+    return indent(level)+"[[" + attachment_file_name(attachment) + "]]\n"
 
 
 def attachment_file_name(nozbe_upload: Nozbe.Upload):
@@ -174,8 +173,10 @@ def main(argv):
     logging.info("JSON-decoding %d bytes of data", len(file_content))
     nozbe_data = decoder.decode(file_content)
     nozbe = Nozbe(nozbe_data)
+    org_project = PyOrgMode.OrgDataStructure()
     for nozbe_project in nozbe.projects_by_id.values():
-        convert_project(nozbe_project)
+        convert_project(org_project.root, nozbe_project)
+    org_project.save_to_file(argv[2])
 
 
 if __name__ == "__main__":
