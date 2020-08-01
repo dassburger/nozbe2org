@@ -25,6 +25,7 @@ import urllib.request
 from collections import namedtuple
 
 from PyOrgMode import PyOrgMode
+import argparse
 
 
 class Nozbe:
@@ -107,7 +108,7 @@ def convert_task(nozbe_task: Nozbe.Task):
     if nozbe_task.contexts:
         item.heading += " "  # bug in PyOrgMode
         item.tags = convert_contexts(nozbe_task)
-    item.todo = "TODO" if not nozbe_task.completed else "DONE"
+        item.todo = "TODO" if not nozbe_task.completed else "DONE"
     if nozbe_task.datetime:
         scheduled = PyOrgMode.OrgSchedule.Element(scheduled=convert_nozbe_datetime(nozbe_task.datetime))
         scheduled.indent = "   "
@@ -184,16 +185,28 @@ def read_whole_file(file_name):
         return nozbe_file.read()
 
 
+def parse_args(argv):
+    parser = argparse.ArgumentParser(description="Convert Nozbe account to .org (see https://orgmode.org).")
+    parser.add_argument("input", metavar='data.json', type=str, nargs=1,
+                        help="Nozbe's data.json")
+    parser.add_argument('output', metavar="Nozbe.org", type=str,
+                        nargs=1, default="Nozbe.org",
+                        help='Output file name')
+    return parser.parse_args()
+    
 def main(argv):
+    args = parse_args(argv)
+
+
     decoder = json.decoder.JSONDecoder()
-    file_content = read_whole_file(argv[1])
+    file_content = read_whole_file(args.input)
     logging.info("JSON-decoding %d bytes of data", len(file_content))
     nozbe_data = decoder.decode(file_content)
     nozbe = Nozbe(nozbe_data)
     org_project = PyOrgMode.OrgDataStructure()
     for nozbe_project in nozbe.projects_by_id.values():
         convert_project(org_project.root, nozbe_project)
-    org_project.save_to_file(argv[2])
+    org_project.save_to_file(args.output)
 
 
 if __name__ == "__main__":
