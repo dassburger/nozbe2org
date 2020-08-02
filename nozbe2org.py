@@ -91,7 +91,7 @@ class Nozbe:
 def convert_project(org: PyOrgMode.OrgNode.Element, nozbe_project: Nozbe.Project):
     logging.info("Converting Nozbe project %s (%s) to Org", nozbe_project.name, nozbe_project.id)
     tasks_root = PyOrgMode.OrgNode.Element()
-    tasks_root.heading = nozbe_project.name
+    tasks_root.heading = nozbe_project.name if nozbe_project.name != "Inbox" else "Tasks"
     org.append_clean(tasks_root)
 
     if nozbe_project.description:
